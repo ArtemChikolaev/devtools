@@ -25,6 +25,37 @@ jobs:
         run: |
           source tool/ci/setup.sh
           echo "$FLUTTER_DIR/bin" >> "$GITHUB_PATH"
+      - name: Check how a running Dart VM reports string length
+        run: |
+          cat > "$RUNNER_TEMP/inspect_string.dart" <<'DART'
+          import 'dart:convert';
+          import 'dart:developer';
+          import 'dart:io';
+          import 'dart:isolate';
+          
+          Future<void> main() async {
+            const value = 'Flutter';
+            final ref = Service.getObjectId(value)!;
+            final server = (await Service.getInfo()).serverUri!;
+            final url = server.resolve('getObject').replace(queryParameters: {
+              'objectId': ref,
+              'isolateId': Service.getIsolateId(Isolate.current)!,
+            });
+            final client = HttpClient();
+            try {
+              final request = await client.getUrl(url);
+              final response = await request.close();
+              final object = jsonDecode(await utf8.decoder.bind(response).join())['result'];
+              if (object['kind'] != 'String' || object['length'] != value.length) {
+                throw StateError('Unexpected string metadata');
+              }
+              print('VM returned kind=${object['kind']}, length=${object['length']}, value=${object['valueAsString']}');
+            } finally {
+              client.close(force: true);
+            }
+          }
+          DART
+          dart --enable-vm-service=0 "$RUNNER_TEMP/inspect_string.dart"
       - name: Analyze and check formatting
         working-directory: packages/devtools_app
         run: |
@@ -39,6 +70,7 @@ jobs:
           s=p.read_text()
           s="import 'package:devtools_app/src/screens/debugger/variables.dart';\n"+s
           s=s.replace("  testWidgetsWithWindowSize('Variables shows items'", """  testWidgets('render debugger variable rows for issue 5377', (tester) async {
+              await tester.runAsync(loadFonts);
               fakeServiceConnection.appState.setVariables([
                 buildStringVariable('Flutter'),
                 buildParentListVariable(),
@@ -57,6 +89,7 @@ jobs:
                     ),
                   ),
                   debugger: debuggerController,
+                  isDarkTheme: true,
                 ),
               );
               await tester.pumpAndSettle();
