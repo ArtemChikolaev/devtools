@@ -217,30 +217,21 @@ class DartObjectNode extends TreeNode<DartObjectNode> {
   int get childCount {
     if (_childCount != null) return _childCount!;
 
-    final value = this.value;
-    if (value is InstanceRef) {
-      final instanceLength = value.length;
-      if (instanceLength == null) return 0;
-      return instanceLength - offset;
-    }
-
-    return 0;
+    final count = _instanceChildCount;
+    return count == null ? 0 : count - offset;
   }
 
   int? _childCount;
 
-  bool get isPartialObject {
-    final value = this.value;
-    // Only instance kinds can be partial:
-    if (value is InstanceRef) {
-      // Only instance kinds with a length property can be partial. See:
-      // https://api.flutter.dev/flutter/vm_service/Instance/length.html
-      final instanceLength = value.length;
-      if (instanceLength == null) return false;
-      return offset != 0 || childCount < instanceLength;
-    }
+  /// The VM reports a string's length in code units, not child nodes.
+  int? get _instanceChildCount {
+    final instance = ref?.instanceRef;
+    return instance?.kind == InstanceKind.kString ? null : instance?.length;
+  }
 
-    return false;
+  bool get isPartialObject {
+    final count = _instanceChildCount;
+    return count != null && (offset != 0 || childCount < count);
   }
 
   // TODO(elliette): Can remove this workaround once DWDS correctly returns

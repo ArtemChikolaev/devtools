@@ -61,7 +61,8 @@ TODO: Remove this section if there are not any updates.
 
 ## Debugger updates
 
-TODO: Remove this section if there are not any updates.
+* Removed the expand arrow from string variables in the debugger.
+  [#5377](https://github.com/flutter/devtools/issues/5377)
 
 ## Network profiler updates
 

@@ -188,6 +188,7 @@ DartObjectNode buildStringVariable(String value) {
           id: _incrementRef(),
           library: _libraryRef,
         ),
+        length: value.length,
         valueAsString: value,
         valueAsStringIsTruncated: true,
       ),

@@ -102,6 +102,7 @@ void main() {
 
   test('strings', () {
     final str = buildStringVariable('Hello there!');
+    expect(str.isExpandable, isFalse);
     expect(str.childCount, equals(0));
     expect(str.isPartialObject, isFalse);
   });
