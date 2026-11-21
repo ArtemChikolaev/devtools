@@ -1,0 +1,101 @@
+name: Verify debugger string expansion
+on:
+  push:
+    branches: [validation/debugger-string-expansion]
+permissions:
+  contents: read
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: 69ad8545b89e83858d4b9087269c70c6bc19f5c8
+          fetch-depth: 2
+          persist-credentials: false
+      - uses: actions/checkout@v4
+        with:
+          repository: flutter/flutter
+          ref: de37392db476791bb9570b5c910cb309bf5845a0
+          fetch-depth: 0
+          path: tool/flutter-sdk
+          persist-credentials: false
+      - name: Set up the project and generate test dependencies
+        run: |
+          source tool/ci/setup.sh
+          echo "$FLUTTER_DIR/bin" >> "$GITHUB_PATH"
+      - name: Analyze and check formatting
+        working-directory: packages/devtools_app
+        run: |
+          dart format --output=none --set-exit-if-changed lib/src/shared/diagnostics/dart_object_node.dart test/shared/diagnostics/dart_object_node_test.dart test/test_infra/utils/variable_utils.dart
+          flutter analyze --no-pub lib/src/shared/diagnostics/dart_object_node.dart test/shared/diagnostics/dart_object_node_test.dart test/test_infra/utils/variable_utils.dart
+      - name: Prepare a render of the debugger variable rows
+        working-directory: packages/devtools_app
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p=Path('test/screens/debugger/debugger_screen_variables_test.dart')
+          s=p.read_text()
+          s="import 'package:devtools_app/src/screens/debugger/variables.dart';\n"+s
+          s=s.replace("  testWidgetsWithWindowSize('Variables shows items'", """  testWidgets('render debugger variable rows for issue 5377', (tester) async {
+              fakeServiceConnection.appState.setVariables([
+                buildStringVariable('Flutter'),
+                buildParentListVariable(),
+              ]);
+              const panel = ValueKey('variable panel');
+              await tester.pumpWidget(
+                wrapWithControllers(
+                  const Align(
+                    alignment: Alignment.topLeft,
+                    child: RepaintBoundary(
+                      key: panel,
+                      child: ColoredBox(
+                        color: Color(0xff202124),
+                        child: SizedBox(width: 300, height: 72, child: Variables()),
+                      ),
+                    ),
+                  ),
+                  debugger: debuggerController,
+                ),
+              );
+              await tester.pumpAndSettle();
+              expect(find.textContaining('Flutter'), findsOneWidget);
+              await expectLater(find.byKey(panel), matchesGoldenFile('issue-5377.png'));
+            });
+
+            testWidgetsWithWindowSize('Variables shows items'""",1)
+          p.with_name('capture_5377_test.dart').write_text(s)
+          PY
+      - name: Confirm upstream reproduces the regression
+        working-directory: packages/devtools_app
+        run: |
+          git restore --source=7af53a860adcfd888a782d3c01ce4385682f9f5d lib/src/shared/diagnostics/dart_object_node.dart
+          if flutter test --no-pub test/shared/diagnostics/dart_object_node_test.dart --plain-name strings --reporter expanded > "$RUNNER_TEMP/before.log" 2>&1; then
+            cat "$RUNNER_TEMP/before.log"
+            exit 1
+          fi
+          cat "$RUNNER_TEMP/before.log"
+          grep -Eq 'Expected: (false|<false>)' "$RUNNER_TEMP/before.log"
+          grep -Eq 'Actual: (true|<true>)' "$RUNNER_TEMP/before.log"
+          flutter test --no-pub --update-goldens test/screens/debugger/capture_5377_test.dart --plain-name 'render debugger variable rows'
+          mv test/screens/debugger/issue-5377.png "$RUNNER_TEMP/before.png"
+          git restore lib/src/shared/diagnostics/dart_object_node.dart
+      - name: Run the fixed diagnostics and debugger widget tests
+        working-directory: packages/devtools_app
+        run: |
+          flutter test --no-pub test/shared/diagnostics/dart_object_node_test.dart test/screens/debugger/debugger_screen_variables_test.dart test/screens/debugger/variables_test.dart --reporter expanded
+          flutter test --no-pub --update-goldens test/screens/debugger/capture_5377_test.dart --plain-name 'render debugger variable rows'
+          mv test/screens/debugger/issue-5377.png "$RUNNER_TEMP/after.png"
+          python3 - <<'PY'
+          import base64,os,pathlib
+          for name in ('before','after'):
+              data=pathlib.Path(os.environ['RUNNER_TEMP'],name+'.png').read_bytes()
+              print(name+'PNG='+base64.b64encode(data).decode())
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: debugger-variable-rows
+          path: |
+            ${{ runner.temp }}/before.png
+            ${{ runner.temp }}/after.png
