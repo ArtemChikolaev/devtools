@@ -64,13 +64,24 @@ jobs:
       - name: Prepare a render of the debugger variable rows
         working-directory: packages/devtools_app
         run: |
+          icon_font=$(find "$GITHUB_WORKSPACE/tool/flutter-sdk" "$HOME/.pub-cache" -iname 'MaterialIcons-Regular.*' -print -quit)
+          test -f "$icon_font"
+          echo "DEVTOOLS_TEST_ICON_FONT=$icon_font" >> "$GITHUB_ENV"
           python3 - <<'PY'
           from pathlib import Path
           p=Path('test/screens/debugger/debugger_screen_variables_test.dart')
           s=p.read_text()
-          s="import 'package:devtools_app/src/screens/debugger/variables.dart';\n"+s
+          s="import 'dart:io';\nimport 'dart:typed_data';\nimport 'package:flutter/services.dart' show FontLoader;\nimport 'package:devtools_app/src/screens/debugger/variables.dart';\n"+s
           s=s.replace("  testWidgetsWithWindowSize('Variables shows items'", """  testWidgets('render debugger variable rows for issue 5377', (tester) async {
-              await tester.runAsync(loadFonts);
+              await tester.runAsync(() async {
+                await loadFonts();
+                const icon = Icons.keyboard_arrow_down;
+                final prefix = icon.fontPackage == null ? '' : 'packages/${icon.fontPackage}/';
+                final loader = FontLoader('$prefix${icon.fontFamily}');
+                final font = await File(Platform.environment['DEVTOOLS_TEST_ICON_FONT']!).readAsBytes();
+                loader.addFont(Future.value(ByteData.sublistView(font)));
+                await loader.load();
+              });
               fakeServiceConnection.appState.setVariables([
                 buildStringVariable('Flutter', length: 120),
                 buildParentListVariable(),
