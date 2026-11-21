@@ -100,8 +100,8 @@ void main() {
     expect(boolean.isPartialObject, isFalse);
   });
 
-  test('strings', () {
-    final str = buildStringVariable('Hello there!');
+  test('strings with a VM length have no children', () {
+    final str = buildStringVariable('Hello there!', length: 120);
     expect(str.isExpandable, isFalse);
     expect(str.childCount, equals(0));
     expect(str.isPartialObject, isFalse);

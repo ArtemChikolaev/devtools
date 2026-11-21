@@ -176,7 +176,7 @@ DartObjectNode buildSetGroupingVariable({
   );
 }
 
-DartObjectNode buildStringVariable(String value) {
+DartObjectNode buildStringVariable(String value, {int? length}) {
   return DartObjectNode.create(
     BoundVariable(
       name: _incrementRoot(),
@@ -188,7 +188,7 @@ DartObjectNode buildStringVariable(String value) {
           id: _incrementRef(),
           library: _libraryRef,
         ),
-        length: value.length,
+        length: length,
         valueAsString: value,
         valueAsStringIsTruncated: true,
       ),
