@@ -11,8 +11,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          ref: 69ad8545b89e83858d4b9087269c70c6bc19f5c8
-          fetch-depth: 2
+          ref: 1d922620cce94b82e4d30aaaccd54633f027f170
+          fetch-depth: 3
           persist-credentials: false
       - uses: actions/checkout@v4
         with:
@@ -72,7 +72,7 @@ jobs:
           s=s.replace("  testWidgetsWithWindowSize('Variables shows items'", """  testWidgets('render debugger variable rows for issue 5377', (tester) async {
               await tester.runAsync(loadFonts);
               fakeServiceConnection.appState.setVariables([
-                buildStringVariable('Flutter'),
+                buildStringVariable('Flutter', length: 120),
                 buildParentListVariable(),
               ]);
               const panel = ValueKey('variable panel');
